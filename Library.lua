@@ -55,9 +55,9 @@ function Surface.Mount(Gui)
 	assert(Player and Mount(Player:WaitForChild("PlayerGui", 5)), "Y Hub UI is unavailable")
 end
 
-function Surface.Animate(Object, Properties, Duration)
+function Surface.Animate(Object, Properties, Duration, Repeats, Reverses)
 	local Tween = game:GetService("TweenService"):Create(Object,
-		TweenInfo.new(Duration or 0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), Properties)
+		TweenInfo.new(Duration or 0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, Repeats or 0, Reverses or false), Properties)
 	Tween:Play()
 	return Tween
 end
@@ -190,6 +190,10 @@ function View:Build()
 	self.Status.Visible = false
 	self.Continue = Button("Continue", "Continue", UDim2.fromOffset(24, 192), UDim2.new(1, -48, 0, 44), Theme.Accent)
 	self.Continue.Modal = true
+	self.Activity = Create("Frame", {
+		Name = "Activity", Position = UDim2.new(0, 0, 1, -2), Size = UDim2.new(0.24, 0, 0, 2),
+		BackgroundColor3 = Theme.Pink, BorderSizePixel = 0, Visible = false,
+	}, self.Continue)
 	self.DiscordDivider = Create("Frame", {
 		Name = "DiscordDivider", Position = UDim2.fromOffset(24, 252), Size = UDim2.new(1, -48, 0, 1),
 		BackgroundColor3 = Theme.Border, BorderSizePixel = 0,
@@ -287,11 +291,24 @@ end
 
 function View:SetBusy(Busy, Label)
 	if self.Destroyed then return end
+	if Busy ~= self.Busy then
+		self:StopActivity()
+		if Busy then
+			self.Activity.Visible = true
+			self.Activity.Position = UDim2.new(0, 0, 1, -2)
+			self.ActivityTween = Surface.Animate(self.Activity, { Position = UDim2.new(0.76, 0, 1, -2) }, 1.2, -1, true)
+		end
+	end
 	self.Busy = Busy
 	self.Key.TextEditable = not Busy
 	self.Continue.Text = Label or (Busy and "Checking..." or "Continue")
 	self.Continue.AutoButtonColor = not Busy
 	self.Continue.BackgroundColor3 = Busy and self.Config.Theme.Surface or self.Config.Theme.Accent
+end
+
+function View:StopActivity()
+	if self.ActivityTween then self.ActivityTween:Cancel() self.ActivityTween = nil end
+	if self.Activity then self.Activity.Visible = false end
 end
 
 function View:SetStatus(Text, Tone)
@@ -312,6 +329,7 @@ function View:ClearKey()
 end
 
 function View:Disconnect()
+	self:StopActivity()
 	for _, Connection in ipairs(self.Connections) do Connection:Disconnect() end
 	table.clear(self.Connections)
 end
@@ -332,7 +350,7 @@ Modules["init"] = function(require)
 local Access = require("./Access")
 
 return {
-	Version = "1.1.0",
+	Version = "1.1.1",
 	CreateAccess = Access.new,
 }
 
