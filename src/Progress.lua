@@ -113,10 +113,12 @@ function Progress:SetResult(Success, Message)
 end
 
 function Progress:Dismiss()
-	if self.Destroyed then return end
+	if self.Destroyed then return false end
 	self:Animate("Entrance", self.Panel, { GroupTransparency = 1 }, 0.18)
 	task.wait(0.18)
+	if self.Destroyed then return false end
 	self:Destroy()
+	return true
 end
 
 function Progress:Destroy()
