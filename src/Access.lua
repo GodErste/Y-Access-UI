@@ -1,0 +1,258 @@
+local Surface = require("./Surface")
+
+--//Variables
+local View = {}
+View.__index = View
+local Checked = utf8.char(10003)
+
+local Create = Surface.Create
+
+--//Source
+function View.new(Config)
+	Config = Surface.Config(Config, "YHubAccess")
+	local self = setmetatable({ Config = Config, Connections = {}, Remember = true, ContentHeight = 358 }, View)
+	local Success = pcall(self.Build, self)
+	if not Success then
+		self:Destroy()
+		error("Y Hub access UI is unavailable", 0)
+	end
+	return self
+end
+
+function View:Build()
+	local Config = self.Config
+	local Theme = Config.Theme
+	local Input = game:GetService("UserInputService")
+	local Gui = Create("ScreenGui", {
+		Name = Config.Name, ResetOnSpawn = false, DisplayOrder = 10000,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling, ScreenInsets = Enum.ScreenInsets.CoreUISafeInsets,
+	})
+	self.Gui = Gui
+	Surface.Mount(Gui)
+
+	local Backdrop = Create("Frame", {
+		Name = "Layout", Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1, BorderSizePixel = 0, Active = false,
+	}, Gui)
+	local Panel = Create("Frame", {
+		Name = "Panel", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(400, self.ContentHeight), BackgroundColor3 = Theme.Background, BorderSizePixel = 0,
+		ClipsDescendants = true, Active = true,
+	}, Backdrop)
+	Create("UICorner", { CornerRadius = UDim.new(0, 4) }, Panel)
+	Create("UIStroke", { Color = Theme.Border, Thickness = 1 }, Panel)
+	Create("Frame", { Name = "Accent", Size = UDim2.new(1, 0, 0, 2), BackgroundColor3 = Theme.Accent, BorderSizePixel = 0 }, Panel)
+	local Scroll = Create("ScrollingFrame", {
+		Name = "Content", Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3,
+		ScrollBarImageColor3 = Theme.Pink, CanvasSize = UDim2.fromOffset(0, self.ContentHeight),
+		ScrollingDirection = Enum.ScrollingDirection.Y,
+	}, Panel)
+
+	local function Label(Name, Text, X, Y, Width, Height, Size, Color, Font)
+		return Create("TextLabel", {
+			Name = Name, Text = Text, Position = UDim2.fromOffset(X, Y), Size = Width < 0 and UDim2.new(1, Width, 0, Height) or UDim2.fromOffset(Width, Height),
+			BackgroundTransparency = 1, TextColor3 = Color or Theme.Text, TextSize = Size or 14,
+			Font = Font or Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left,
+			TextWrapped = true, RichText = false,
+		}, Scroll)
+	end
+	local function Button(Name, Text, Position, Size, Background, Color)
+		local Object = Create("TextButton", {
+			Name = Name, Text = Text, Position = Position, Size = Size,
+			BackgroundColor3 = Background, TextColor3 = Color or Theme.Text,
+			Font = Enum.Font.GothamMedium, TextSize = 14, BorderSizePixel = 0,
+			AutoButtonColor = true, Selectable = true,
+		}, Scroll)
+		Create("UICorner", { CornerRadius = UDim.new(0, 4) }, Object)
+		return Object
+	end
+
+	local Mark = Label("Mark", "<i>Y</i>", 24, 22, 30, 33, 24, Theme.Text, Enum.Font.GothamBold)
+	Mark.RichText = true
+	Mark.BackgroundTransparency, Mark.BackgroundColor3, Mark.TextXAlignment = 0, Theme.Accent, Enum.TextXAlignment.Center
+	Label("Brand", "Y HUB.", 64, 22, 150, 33, 22, Theme.Text, Enum.Font.GothamBold)
+	local Close = Button("Close", utf8.char(215), UDim2.new(1, -60, 0, 14), UDim2.fromOffset(44, 44), Theme.Background, Theme.Muted)
+	Close.TextSize = 22
+	Create("Frame", {
+		Name = "HeaderLine", Position = UDim2.fromOffset(0, 76), Size = UDim2.new(1, 0, 0, 1),
+		BackgroundColor3 = Theme.Border, BorderSizePixel = 0,
+	}, Scroll)
+
+	local Field = Create("Frame", {
+		Name = "KeyField", Position = UDim2.fromOffset(24, 96), Size = UDim2.new(1, -48, 0, 48),
+		BackgroundColor3 = Theme.Surface, BorderSizePixel = 0,
+	}, Scroll)
+	Create("UICorner", { CornerRadius = UDim.new(0, 4) }, Field)
+	local FieldBorder = Create("UIStroke", { Color = Theme.Border, Thickness = 1 }, Field)
+	local Key = Create("TextBox", {
+		Name = "Key", Position = UDim2.fromOffset(13, 0), Size = UDim2.new(1, -26, 1, 0),
+		Text = "", PlaceholderText = "Access key", ClearTextOnFocus = false,
+		BackgroundTransparency = 1, TextColor3 = Theme.Text, PlaceholderColor3 = Theme.Muted,
+		TextSize = 14, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left,
+		TextTransparency = 0, MultiLine = false,
+	}, Field)
+	self.Key = Key
+
+	local function Check(Name, Text, Position, Width)
+		local Toggle = Button(Name, "", Position, UDim2.new(0.5, Width, 0, 42), Theme.Background)
+		local Box = Create("Frame", {
+			Name = "Box", Position = UDim2.fromOffset(0, 13), Size = UDim2.fromOffset(18, 18),
+			BackgroundColor3 = Theme.Surface, BorderSizePixel = 0,
+		}, Toggle)
+		Create("UICorner", { CornerRadius = UDim.new(0, 3) }, Box)
+		Create("UIStroke", { Color = Theme.Border, Thickness = 1 }, Box)
+		local Tick = Create("TextLabel", {
+			Name = "Tick", Text = "", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1,
+			TextColor3 = Theme.Pink, TextSize = 14, Font = Enum.Font.GothamBold,
+		}, Box)
+		local TextLabel = Create("TextLabel", {
+			Name = "Label", Text = Text, Position = UDim2.fromOffset(26, 0), Size = UDim2.new(1, -26, 1, 0),
+			BackgroundTransparency = 1, TextColor3 = Theme.Muted, TextSize = 12,
+			Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, TextWrapped = true,
+		}, Toggle)
+		return Toggle, Tick, TextLabel
+	end
+	local Remember, RememberTick, RememberLabel = Check("Remember", "Remember key", UDim2.fromOffset(24, 146), -24)
+	Remember.Size = UDim2.new(1, -48, 0, 44)
+	self.RememberButton, self.RememberTick, self.RememberLabel = Remember, RememberTick, RememberLabel
+	RememberTick.Text = Checked
+	self.Status = Label("Status", "", 24, 244, -48, 40, 12, Theme.Muted)
+	self.Status.Visible = false
+	self.Continue = Button("Continue", "Continue", UDim2.fromOffset(24, 192), UDim2.new(1, -48, 0, 44), Theme.Accent)
+	self.Continue.Modal = true
+	self.DiscordDivider = Create("Frame", {
+		Name = "DiscordDivider", Position = UDim2.fromOffset(24, 252), Size = UDim2.new(1, -48, 0, 1),
+		BackgroundColor3 = Theme.Border, BorderSizePixel = 0,
+	}, Scroll)
+	self.DiscordHint = Label("DiscordHint", "Get your key on Discord", 24, 264, -48, 20, 12, Theme.Muted)
+	self.DiscordHint.TextXAlignment = Enum.TextXAlignment.Center
+	local Discord = Button("Discord", "Copy invite", UDim2.new(0.5, 0, 0, 294), UDim2.fromOffset(180, 44), Theme.Surface, Theme.Pink)
+	Discord.AnchorPoint = Vector2.new(0.5, 0)
+	Discord.TextSize = 13
+	Discord.TextXAlignment = Enum.TextXAlignment.Center
+	Create("UIStroke", { Color = Theme.Accent, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, Discord)
+	self.Discord = Discord
+	self.Scroll, self.Panel, self.Backdrop, self.Input = Scroll, Panel, Backdrop, Input
+
+	local function Connect(Signal, Callback)
+		table.insert(self.Connections, Signal:Connect(Callback))
+	end
+	local function Submit()
+		if self.OnSubmit and not self.Busy then self.OnSubmit(Key.Text, self.Remember) end
+	end
+	Connect(Key.Focused, function()
+		FieldBorder.Color = Theme.Pink
+		self:Resize()
+	end)
+	Connect(Key.FocusLost, function(Enter)
+		FieldBorder.Color = Theme.Border
+		if Enter then Submit() end
+	end)
+	Connect(Key.ReturnPressedFromOnScreenKeyboard, Submit)
+	Connect(self.Continue.Activated, Submit)
+	Connect(Close.Activated, function() if self.OnClose then self.OnClose() end end)
+	Connect(Remember.Activated, function()
+		if self.Busy or not self.CanRemember then return end
+		self.Remember = not self.Remember
+		RememberTick.Text = self.Remember and Checked or ""
+	end)
+	Connect(Discord.Activated, function()
+		if self.InviteCopied then return end
+		local Success = type(setclipboard) == "function" and pcall(setclipboard, Config.Discord or "")
+		if not Success then self:SetStatus(Config.Discord or "Discord invite unavailable.", "muted") return end
+		self.InviteCopied = true
+		Discord.Text, Discord.TextColor3 = "Invite copied", Theme.Success
+		task.delay(2, function()
+			if self.Destroyed then return end
+			self.InviteCopied = false
+			Discord.Text, Discord.TextColor3 = "Copy invite", Theme.Pink
+		end)
+	end)
+	local function Resize()
+		self:Resize()
+	end
+	Connect(Backdrop:GetPropertyChangedSignal("AbsoluteSize"), Resize)
+	Connect(Backdrop:GetPropertyChangedSignal("AbsolutePosition"), Resize)
+	Connect(Input:GetPropertyChangedSignal("OnScreenKeyboardVisible"), Resize)
+	Connect(Input:GetPropertyChangedSignal("OnScreenKeyboardPosition"), Resize)
+	Connect(Input:GetPropertyChangedSignal("OnScreenKeyboardSize"), Resize)
+	Connect(Gui.Destroying, function()
+		self:Disconnect()
+		self.Destroyed = true
+		if self.OnClose then self.OnClose() end
+	end)
+	Resize()
+end
+
+function View:Resize()
+	if self.Destroyed then return end
+	local Size = self.Backdrop.AbsoluteSize
+	if Size.X < 1 or Size.Y < 1 then return end
+	local Height = Size.Y
+	if self.Input.OnScreenKeyboardVisible then
+		local KeyboardTop = self.Input.OnScreenKeyboardPosition.Y - self.Backdrop.AbsolutePosition.Y
+		if KeyboardTop <= 0 then KeyboardTop = Size.Y - self.Input.OnScreenKeyboardSize.Y end
+		if KeyboardTop > 0 then Height = math.min(Height, KeyboardTop) end
+	end
+	local PanelHeight = math.min(self.ContentHeight, math.max(1, Height - 24))
+	self.Panel.Size = UDim2.fromOffset(math.min(400, math.max(1, Size.X - 32)), PanelHeight)
+	self.Panel.Position = UDim2.new(0.5, 0, 0, Height * 0.5)
+	self.Scroll.CanvasSize = UDim2.fromOffset(0, self.ContentHeight)
+	if self.Key:IsFocused() then
+		self.Scroll.CanvasPosition = Vector2.new(0, math.max(0, 156 - PanelHeight))
+	else
+		self.Scroll.CanvasPosition = Vector2.new(0, math.min(self.Scroll.CanvasPosition.Y, math.max(0, self.ContentHeight - PanelHeight)))
+	end
+end
+
+function View:Bind(OnSubmit, OnClose)
+	self.OnSubmit, self.OnClose = OnSubmit, OnClose
+end
+
+function View:SetRememberAvailable(Available)
+	self.CanRemember, self.Remember = Available == true, Available == true
+	self.RememberTick.Text = self.Remember and Checked or ""
+	self.RememberLabel.Text = Available and "Remember key" or "Saving unavailable"
+end
+
+function View:SetBusy(Busy, Label)
+	if self.Destroyed then return end
+	self.Busy = Busy
+	self.Key.TextEditable = not Busy
+	self.Continue.Text = Label or (Busy and "Checking..." or "Continue")
+	self.Continue.AutoButtonColor = not Busy
+	self.Continue.BackgroundColor3 = Busy and self.Config.Theme.Surface or self.Config.Theme.Accent
+end
+
+function View:SetStatus(Text, Tone)
+	if self.Destroyed then return end
+	local Colors = { error = self.Config.Theme.Error, success = self.Config.Theme.Success, muted = self.Config.Theme.Muted }
+	self.Status.Text, self.Status.TextColor3 = Text, Colors[Tone] or Colors.muted
+	self.Status.Visible = #Text > 0
+	local Offset = self.Status.Visible and 52 or 0
+	self.ContentHeight = 358 + Offset
+	self.DiscordDivider.Position = UDim2.fromOffset(24, 252 + Offset)
+	self.DiscordHint.Position = UDim2.fromOffset(24, 264 + Offset)
+	self.Discord.Position = UDim2.new(0.5, 0, 0, 294 + Offset)
+	self:Resize()
+end
+
+function View:ClearKey()
+	if not self.Destroyed then self.Key.Text = "" end
+end
+
+function View:Disconnect()
+	for _, Connection in ipairs(self.Connections) do Connection:Disconnect() end
+	table.clear(self.Connections)
+end
+
+function View:Destroy()
+	if self.Destroyed then return end
+	self.Destroyed = true
+	self:Disconnect()
+	if self.Key then self.Key.Text = "" end
+	if self.Gui then self.Gui:Destroy() end
+end
+
+return View
